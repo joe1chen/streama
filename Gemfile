@@ -2,6 +2,7 @@ source "http://rubygems.org"
 
 gem "activesupport", "~> 3.0"
 gem "mongoid", "~> 2.0"
+gem "faststep"
 
 group :development do
   gem "rspec", "~> 2.3.0"

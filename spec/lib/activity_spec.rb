@@ -1,4 +1,5 @@
 require 'spec_helper'
+require 'faststep'
 
 describe "Activity" do
 
@@ -6,6 +7,7 @@ describe "Activity" do
   let(:listing) { Listing.create(:title => "A test listing") }
   let(:user) { User.create(:full_name => "Christos") }
   let(:receiver) { User.create(:full_name => "Receiver") }
+  let(:conn) { Faststep::Connection.new }
 
   describe '.activity' do
     it "registers and return a valid definition" do
@@ -171,6 +173,60 @@ describe "Activity" do
         a.updated_at.should be_instance_of Time
       end
     end
+
+    it "batch insert with faststep" do
+
+      db = conn.db("streama-rspec-test")
+
+      options = {:verb => :enquiry, :receiver => user, :actor => user, :object => enquiry, :target => listing}
+
+      verb = options.delete(:verb)
+      definition = Streama::Definition.find(verb)
+
+      batch = []
+      (1..num_followers).each do |n|
+        activity = {}
+        activity["verb"] = verb
+
+        options.each_pair do |key,val|
+          keyString = key.to_s
+          activity[keyString] = {}
+          activity[keyString]["type"] = val.class.to_s
+          activity[keyString]["id"] = val._id
+
+          definitionObj = definition.send key
+
+          cacheFields = definitionObj[val.class.to_s.downcase.to_sym][:cache]
+          cacheFields.each do |field|
+            activity[keyString][field.to_s] = val.send field
+          end
+        end
+
+        activity["updated_at"] = Time.now
+        batch << activity
+
+        if batch.size % max_batch_size == 0
+          db["activities"].insert(batch)
+          #Activity.collection.insert(batch)
+          batch = []
+        end
+      end
+
+      #Activity.collection.insert(batch)
+      db["activities"].insert(batch)
+
+      Activity.count.should == num_followers
+      Activity.all.each do |a|
+
+        a.load_instance(:actor).should be_instance_of User
+        a.load_instance(:object).should be_instance_of Enquiry
+        a.load_instance(:target).should be_instance_of Listing
+        a.load_instance(:receiver).should be_instance_of User
+
+        a.verb.should == :enquiry
+        a.updated_at.should be_instance_of Time
+      end
+    end
   end
 
   describe 'batch insertion performance test' do
@@ -221,6 +277,48 @@ describe "Activity" do
       end
 
       Activity.collection.insert(batch)
+    end
+
+    it "batch insert with faststep" do
+
+      db = conn.db("streama-rspec-test")
+
+      options = {:verb => :enquiry, :receiver => user, :actor => user, :object => enquiry, :target => listing}
+
+      verb = options.delete(:verb)
+      definition = Streama::Definition.find(verb)
+
+      batch = []
+      (1..num_followers).each do |n|
+        activity = {}
+        activity["verb"] = verb
+
+        options.each_pair do |key,val|
+          keyString = key.to_s
+          activity[keyString] = {}
+          activity[keyString]["type"] = val.class.to_s
+          activity[keyString]["id"] = val._id
+
+          definitionObj = definition.send key
+
+          cacheFields = definitionObj[val.class.to_s.downcase.to_sym][:cache]
+          cacheFields.each do |field|
+            activity[keyString][field.to_s] = val.send field
+          end
+        end
+
+        activity["updated_at"] = Time.now
+        batch << activity
+
+        if batch.size % max_batch_size == 0
+          db["activities"].insert(batch)
+          #Activity.collection.insert(batch)
+          batch = []
+        end
+      end
+
+      #Activity.collection.insert(batch)
+      db["activities"].insert(batch)
     end
 
   end
