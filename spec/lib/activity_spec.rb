@@ -170,7 +170,7 @@ describe "Activity" do
       Activity.collection.insert(batch)
 
       Activity.count.should >= num_followers
-      Activity.all.each do |a|
+      Activity.where(:verb => :new_photo).each do |a|
 
         a.load_instance(:actor).should be_instance_of User
         a.load_instance(:object).should be_instance_of Photo

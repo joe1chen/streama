@@ -13,14 +13,12 @@ describe "Actor" do
 
     it "pushes activity to receivers" do
       activity = user.publish_activity(:new_photo, :object => photo, :target_object => album)
-      #activity.receivers.size == 6
-      activity.size.should >= 6
+      activity.size.should == user.followers.count
     end
 
     it "pushes to a defined stream" do
       activity = user.publish_activity(:new_photo, :object => photo, :target_object => album, :receivers => :friends)
-      #activity.receivers.size == 6
-      activity.size.should >= 6
+      activity.size.should == user.friends.count
     end
     
   end
