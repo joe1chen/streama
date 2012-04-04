@@ -132,31 +132,41 @@ module Streama
 
     end
 
-
-    module InstanceMethods
-
-      # Returns an instance of an actor, object or target_object
-      #
-      # @param [ Symbol ] type The data type (actor, object, target_object) to return an instance for.
-      #
-      # @return [Mongoid::Document] document A mongoid document instance
-      def load_instance(type)
-        (data = self.send(type)).is_a?(Hash) ? data['type'].to_s.camelcase.constantize.find(data['id']) : data
-      end
     
-      def refresh_data
-        assign_data
-        save(:validate => false)
-      end
+    # Publishes the activity to the receivers
+    #
+    # @param [ Hash ] options The options to publish with.
+    #
+    def publish(options = {})
+      actor = load_instance(:actor)        
+      self.receivers = (options[:receivers] || actor.followers).map { |r| { :id => r.id, :type => r.class.to_s } }
+      self.save
+      self
+    end
     
-      protected
+    # Returns an instance of an actor, object or target
+    #
+    # @param [ Symbol ] type The data type (actor, object, target) to return an instance for.
+    #
+    # @return [Mongoid::Document] document A mongoid document instance
+    def load_instance(type)
+      (data = self.send(type)).is_a?(Hash) ? data['type'].to_s.camelcase.constantize.find(data['id']) : data
+    end
+  
+    def refresh_data
+      assign_data
+      save(:validate => false)
+    end
+  
+    protected
+      
         
       def assign_data
       
         [:actor, :object, :target_object, :receiver].each do |type|
           next unless object = load_instance(type)
 
-          class_sym = object.class.name.underscore.to_sym
+        class_sym = object.class.name.underscore.to_sym
 
           raise Streama::InvalidData.new(class_sym) unless definition.send(type).has_key?(class_sym)
 
@@ -167,15 +177,13 @@ module Streama
               raise Streama::InvalidField.new(field) unless object.respond_to?(field)
               hash[field.to_s] = object.send(field)
             end
-          end
-          write_attribute(type, hash)
         end
+        write_attribute(type, hash)      
       end
-    
-      def definition
-        @definition ||= Streama::Definition.find(verb)
-      end
-      
+    end
+  
+    def definition
+      @definition ||= Streama::Definition.find(verb)
     end
     
   end
