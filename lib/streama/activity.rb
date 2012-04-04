@@ -132,7 +132,7 @@ module Streama
 
     end
 
-    
+=begin
     # Publishes the activity to the receivers
     #
     # @param [ Hash ] options The options to publish with.
@@ -143,6 +143,7 @@ module Streama
       self.save
       self
     end
+=end
     
     # Returns an instance of an actor, object or target
     #
