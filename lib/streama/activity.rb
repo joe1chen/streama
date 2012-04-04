@@ -10,13 +10,13 @@ module Streama
       field :verb,        :type => Symbol
       field :actor,       :type => Hash
       field :object,      :type => Hash
-      field :target,      :type => Hash
+      field :target_object,      :type => Hash
       field :receiver,    :type => Hash
           
       index :name
       index [['actor.id', Mongo::ASCENDING], ['actor.type', Mongo::ASCENDING]]
       index [['object.id', Mongo::ASCENDING], ['object.type', Mongo::ASCENDING]]
-      index [['target.id', Mongo::ASCENDING], ['target.type', Mongo::ASCENDING]]
+      index [['target_object.id', Mongo::ASCENDING], ['target_object.type', Mongo::ASCENDING]]
       index [['receiver.id', Mongo::ASCENDING], ['receiver.type', Mongo::ASCENDING], ['created_at', Mongo::DESCENDING]]
           
       validates_presence_of :actor, :verb
@@ -34,7 +34,7 @@ module Streama
       #   activity(:enquiry) do
       #     actor :user, :cache => [:full_name]
       #     object :enquiry, :cache => [:subject]
-      #     target :listing, :cache => [:title]
+      #     target_object :listing, :cache => [:title]
       #   end
       #
       # @return [Definition] Returns the registered definition
@@ -108,9 +108,10 @@ module Streama
 
             definitionObj = definition.send key
 
-            cacheFields = definitionObj[val.class.to_s.downcase.to_sym][:cache]
-            cacheFields.each do |field|
-              activity[keyString][field.to_s] = val.send field
+            if cacheFields = definitionObj[val.class.to_s.downcase.to_sym].try(:[],:cache)
+              cacheFields.each do |field|
+                activity[keyString][field.to_s] = val.send field
+              end
             end
           end
 
@@ -134,9 +135,9 @@ module Streama
 
     module InstanceMethods
 
-      # Returns an instance of an actor, object or target
+      # Returns an instance of an actor, object or target_object
       #
-      # @param [ Symbol ] type The data type (actor, object, target) to return an instance for.
+      # @param [ Symbol ] type The data type (actor, object, target_object) to return an instance for.
       #
       # @return [Mongoid::Document] document A mongoid document instance
       def load_instance(type)
@@ -152,7 +153,7 @@ module Streama
         
       def assign_data
       
-        [:actor, :object, :target, :receiver].each do |type|
+        [:actor, :object, :target_object, :receiver].each do |type|
           next unless object = load_instance(type)
 
           class_sym = object.class.name.underscore.to_sym
@@ -161,7 +162,7 @@ module Streama
 
           hash = {'id' => object.id, 'type' => object.class.name}
 
-          if fields = definition.send(type)[class_sym][:cache]
+          if fields = definition.send(type)[class_sym].try(:[],:cache)
             fields.each do |field|
               raise Streama::InvalidField.new(field) unless object.respond_to?(field)
               hash[field.to_s] = object.send(field)

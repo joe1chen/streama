@@ -1,124 +1,47 @@
 require 'spec_helper'
 
 describe "Actor" do
-  
-  let(:enquiry) { Enquiry.create(:comment => "I'm interested") }
-  let(:listing) { Listing.create(:title => "A test listing") }
+
+  let(:photo) { Photo.create(:comment => "I'm interested") }
+  let(:album) { Album.create(:title => "A test album") }
   let(:user) { User.create(:full_name => "Christos") }
 
-  before :all do
-    Activity.activity :new_comment do
-      actor :user, :cache => [:full_name]
-      object :listing, :cache => [:title]
-      target :listing, :cache => [:title]
-      receiver :user, :cache => []
-    end
-
-    Activity.activity :new_enquiry do
-      actor :user, :cache => [:full_name]
-      object :enquiry, :cache => [:comment]
-      target :listing, :cache => [:title]
-      receiver :user, :cache => []
-    end
-  end
-
   describe "#publish_activity" do
-
-    receivers = []
     before :each do
-      5.times { |n| receivers << User.create(:full_name => "Receiver #{n}") }
+      2.times { |n| User.create(:full_name => "Receiver #{n}") }
     end
 
     it "pushes activity to receivers" do
-      activity = user.publish_activity(:new_enquiry, :object => enquiry, :target => listing)
-
-      Activity.where({ "actor.id" => user.id, "actor.type" => user.class.to_s }).count == user.followers.size
+      activity = user.publish_activity(:new_photo, :object => photo, :target_object => album)
+      #activity.receivers.size == 6
+      activity.size.should >= 6
     end
 
-    it "should have activities with the same created_at timestamps" do
-      activity = user.publish_activity(:new_enquiry, :object => enquiry, :target => listing)
-
-      Activity.where({ "actor.id" => user.id, "actor.type" => user.class.to_s }).count.should > 0
-
-      # Make sure all the created_at timestamps are the same
-      timestamp = nil
-      Activity.where({ "actor.id" => user.id, "actor.type" => user.class.to_s }).each do |activity|
-        if !timestamp
-          timestamp = activity.created_at
-        else
-          timestamp.should == activity.created_at
-        end
-      end
-    end
-
-  end
-
-  describe "#publish_activity_with_receiver" do
-
-    receivers = []
-
-    before :each do
-      5.times { |n| receivers << User.create(:full_name => "Receiver #{n}") }
-    end
-    
-    it "pushes activity to receivers" do
-      receivers.each do |receiver|
-        activity = user.publish_activity(:new_enquiry, :object => enquiry, :target => listing, :receiver => receiver)
-      end
-
-      Activity.where({ "actor.id" => user.id, "actor.type" => user.class.to_s }).count.should == receivers.size
+    it "pushes to a defined stream" do
+      activity = user.publish_activity(:new_photo, :object => photo, :target_object => album, :receivers => :friends)
+      #activity.receivers.size == 6
+      activity.size.should >= 6
     end
     
   end
 
-  describe "#publish_activity_with_receivers" do
-
-    receivers = []
-
-    before :each do
-      5.times { |n| receivers << User.create(:full_name => "Receiver #{n}") }
-    end
-
-    it "pushes activity to receivers" do
-      activity = user.publish_activity(:new_enquiry, :object => enquiry, :target => listing, :receivers => receivers)
-
-      Activity.where({ "actor.id" => user.id, "actor.type" => user.class.to_s }).count.should == receivers.size
-    end
-
-  end
-
-  describe "#publish_activity_with_receivers_symbol" do
-
-    before :each do
-      5.times { |n| User.create(:full_name => "Receiver #{n}") }
-    end
-
-    it "pushes activity to receivers" do
-      activity = user.publish_activity(:new_enquiry, :object => enquiry, :target => listing, :receivers => :friends)
-
-      Activity.where({ "actor.id" => user.id, "actor.type" => user.class.to_s }).count.should == user.friends.size
-    end
-
-  end
-  
   describe "#activity_stream" do
-
-    receivers = []
-
-    before :each do
-      5.times { |n| receivers << User.create(:full_name => "Receiver #{n}") }
-      receivers[0].publish_activity(:new_enquiry, :object => enquiry, :target => listing, :receiver => user)
-      receivers[1].publish_activity(:new_comment, :object => listing, :receiver => user)
-    end
     
+    before :each do
+      2.times { |n| User.create(:full_name => "Receiver #{n}") }
+      user.publish_activity(:new_photo, :object => photo, :target_object => album)
+      user.publish_activity(:new_comment, :object => photo)
+    end
+
     it "retrieves the stream for an actor" do
       user.activity_stream.size.should eq 2
     end
-    
+
     it "retrieves the stream and filters to a particular activity type" do
-      user.activity_stream(:type => :new_comment).size.should eq 1
+      user.activity_stream(:type => :new_photo).size.should eq 1
     end
-        
+
   end
+
 
 end
