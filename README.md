@@ -4,7 +4,7 @@
 
 Streama is a simple Ruby activity stream gem for use with the Mongoid ODM framework.
 
-[![travis](https://secure.travis-ci.org/christospappas/streama.png)](http://travis-ci.org/christospappas/streama)
+[![travis](https://secure.travis-ci.org/joe1chen/streama.png)](http://travis-ci.org/joe1chen/streama)
 
 ## Install
 
