@@ -29,8 +29,14 @@ describe "Definition" do
 
   it "adds a target to the definition" do
     dsl = definition_dsl
+    dsl.target_object(:company, :cache => [:id, :name])
+    dsl.attributes[:target_object].should eq :company => { :cache=>[:id, :name] }
+  end
+  
+  it "deprecates target method" do
+    dsl = definition_dsl
     dsl.target(:company, :cache => [:id, :name])
-    dsl.attributes[:target].should eq :company => { :cache=>[:id, :name] }
+    dsl.attributes[:target_object].should eq :company => { :cache=>[:id, :name] }
   end
 
   it "adds a receiver to the definition" do

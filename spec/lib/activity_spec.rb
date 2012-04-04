@@ -2,93 +2,98 @@ require 'spec_helper'
 
 describe "Activity" do
 
-  let(:enquiry) { Enquiry.create(:comment => "I'm interested") }
-  let(:listing) { Listing.create(:title => "A test listing") }
+  let(:photo) { Photo.create(:file => "image.jpg") }
+  let(:album) { Album.create(:title => "A test album") }
   let(:user) { User.create(:full_name => "Christos") }
-  let(:receiver) { User.create(:full_name => "Receiver") }
 
-  describe '.activity' do
+  describe ".activity" do
     it "registers and return a valid definition" do
-      @definition = Activity.activity(:new_enquiry) do
+      @definition = Activity.activity(:test_activity) do
         actor :user, :cache => [:full_name]
-        object :enquiry, :cache => [:comment]
-        target :listing, :cache => [:title]
-        receiver :user, :cache => [:full_name]
+        object :photo, :cache => [:file]
+        target_object :album, :cache => [:title]
       end
       
       @definition.is_a?(Streama::Definition).should be true
     end
+    
   end
   
-  describe '#publish' do
+  describe "#publish" do
+
+    before :each do
+      @send_to = []
+      2.times { |n| @send_to << User.create(:full_name => "Custom Receiver #{n}") }
+      5.times { |n| User.create(:full_name => "Receiver #{n}") }
+    end
+    
+    it "pushes activity to receivers" do
+      @activity = Activity.publish(:new_photo, {:actor => user, :object => photo, :target_object => album, :receivers => @send_to})
+      @activity.receivers.size.should == 2
+    end
+
+
+    context "when activity not cached" do
+      
+      it "pushes activity to receivers" do
+        @activity = Activity.publish(:new_photo_without_cache, {:actor => user, :object => photo, :target_object => album, :receivers => @send_to})
+        @activity.receivers.size.should == 2
+      end
+      
+    end
     
     it "overrides the recievers if option passed" do
-      send_to = []
-      2.times { |n| send_to << User.create(:full_name => "Custom Receiver #{n}") }
-      5.times { |n| User.create(:full_name => "Receiver #{n}") }
-      Activity.publish(:new_enquiry, {:actor => user, :object => enquiry, :target => listing, :receivers => send_to})
-      Activity.count.should == send_to.size
+      @activity = Activity.publish(:new_photo, {:actor => user, :object => photo, :target_object => album, :receivers => @send_to})
+      @activity.receivers.size.should == 2
     end
     
-  #  context "when republishing"
-  #    before :each do
-  #      @actor = user
-  #      @activity = Activity.publish(:new_enquiry, {:actor => @actor, :object => enquiry, :target => listing})
-  #      @activity.publish
-  #    end
+
+    
+    context "when republishing"
+      before :each do
+        @actor = user
+        @activity = Activity.publish(:new_photo, {:actor => @actor, :object => photo, :target_object => album})
+        @activity.publish
+      end
       
-  #    it "updates metadata" do
-  #      @actor.full_name = "testing"
-  #      @actor.save
-  #      @activity.publish
-  #      @activity.actor['full_name'].should eq "testing"
-  #    end
+      it "updates metadata" do
+        @actor.full_name = "testing"
+        @actor.save
+        @activity.publish
+        @activity.actor['full_name'].should eq "testing"
+      end
   end
   
-  describe '.publish' do
-    it "creates a new activity with single receiver" do
-      Activity.publish(:new_enquiry, {:actor => user, :object => enquiry, :target => listing, :receiver => receiver})
-      Activity.count.should == 1
-    end
-
-    it "creates new activities" do
-      Activity.publish(:new_enquiry, {:actor => user, :object => enquiry, :target => listing})
-      activities = Activity.all
-      activities.count.should == user.followers.size
-      activities.each do |activity|
-        activity.should be_an_instance_of Activity
-      end
+  describe ".publish" do
+    it "creates a new activity" do
+      activity = Activity.publish(:new_photo, {:actor => user, :object => photo, :target_object => album})
+      activity.should be_an_instance_of Activity
     end
   end
 
-  describe '#refresh' do
-
+  describe "#refresh" do
+    
     before :each do
-      5.times { |n| User.create(:full_name => "Receiver #{n}") }
       @user = user
-      @full_name = @user.full_name
-      Activity.publish(:new_enquiry, {:actor => @user, :object => enquiry, :target => listing})
+      @activity = Activity.publish(:new_photo, {:actor => @user, :object => photo, :target_object => album})
     end
-
+    
     it "reloads instances and updates activities stored data" do
-      # Load actor's activities
-      @activities = Activity.where({ "actor.id" => @user.id, "actor.type" => @user.class.to_s })
-      @activities.count.should == @user.followers.size
-
-      activity = @activities.first
-
+      @activity.save
+      @activity = Activity.last    
+      
       expect do
         @user.update_attribute(:full_name, "Test")
-        activity.refresh_data
-      end.to change{ activity.load_instance(:actor).full_name}.from(@full_name).to("Test")
+        @activity.refresh_data
+      end.to change{ @activity.load_instance(:actor).full_name}.from("Christos").to("Test")
     end
     
   end
 
-  describe '#load_instance' do
-
+  describe "#load_instance" do
+    
     before :each do
-      Activity.publish(:new_enquiry, {:actor => user, :object => enquiry, :target => listing, :receiver => receiver})
+      @activity = Activity.publish(:new_photo, {:actor => user, :object => photo, :target_object => album})
       @activity = Activity.last
     end
     
@@ -97,15 +102,11 @@ describe "Activity" do
     end
     
     it "loads an object instance" do
-      @activity.load_instance(:object).should be_instance_of Enquiry
+      @activity.load_instance(:object).should be_instance_of Photo
     end
     
     it "loads a target instance" do
-      @activity.load_instance(:target).should be_instance_of Listing
-    end
-
-    it "loads a receiver instance" do
-      @activity.load_instance(:receiver).should be_instance_of User
+      @activity.load_instance(:target_object).should be_instance_of Album
     end
     
   end
@@ -118,13 +119,13 @@ describe "Activity" do
     it "no batch insert" do
 
       (1..num_followers).each do |n|
-        activity = Activity.new({:verb => :enquiry, :receiver => user, :actor => user, :object => enquiry, :target => listing})
+        activity = Activity.new({:verb => :enquiry, :receiver => user, :actor => user, :object => enquiry, :target_object => listing})
       end
     end
 
     it "batch insert" do
 
-      options = {:verb => :enquiry, :receiver => user, :actor => user, :object => enquiry, :target => listing}
+      options = {:verb => :enquiry, :receiver => user, :actor => user, :object => enquiry, :target_object => listing}
 
       verb = options.delete(:verb)
       definition = Streama::Definition.find(verb)
@@ -165,7 +166,7 @@ describe "Activity" do
 
         a.load_instance(:actor).should be_instance_of User
         a.load_instance(:object).should be_instance_of Enquiry
-        a.load_instance(:target).should be_instance_of Listing
+        a.load_instance(:target_object).should be_instance_of Listing
         a.load_instance(:receiver).should be_instance_of User
 
         a.verb.should == :enquiry
@@ -183,13 +184,13 @@ describe "Activity" do
     it "no batch insert" do
 
       (1..num_followers).each do |n|
-        activity = Activity.new({:verb => :enquiry, :receiver => user, :actor => user, :object => enquiry, :target => listing})
+        activity = Activity.new({:verb => :enquiry, :receiver => user, :actor => user, :object => enquiry, :target_object => listing})
       end
     end
 
     it "batch insert" do
 
-      options = {:verb => :enquiry, :receiver => user, :actor => user, :object => enquiry, :target => listing}
+      options = {:verb => :enquiry, :receiver => user, :actor => user, :object => enquiry, :target_object => listing}
 
       verb = options.delete(:verb)
       definition = Streama::Definition.find(verb)

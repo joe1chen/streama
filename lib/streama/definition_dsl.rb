@@ -9,13 +9,18 @@ module Streama
         :name => name.to_sym,
         :actor => {}, 
         :object => {}, 
-        :target => {},
+        :target_object => {},
         :receiver => {}
       }
     end
     
     delegate :[], :to => :@attributes
-        
+    
+    def target(*args)
+      warn "[DEPRECATION] #target is deprecated. Please use #target_object instead."
+      @attributes[:target_object].store(args[0].is_a?(Symbol) ? args[0] : args[0].class.to_sym, args[1])
+    end
+    
     def self.data_methods(*args)
       args.each do |method|
         define_method method do |*args|
@@ -23,7 +28,7 @@ module Streama
         end
       end
     end
-    data_methods :actor, :object, :target, :receiver
+    data_methods :actor, :object, :target_object, :receiver
 
   end
   
