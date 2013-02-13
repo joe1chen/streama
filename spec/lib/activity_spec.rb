@@ -216,7 +216,9 @@ describe "Activity" do
 
           definitionObj = definition.send key
 
-          if cacheFields = definitionObj[val.class.to_s.downcase.to_sym].try(:[],:cache)
+          # Convert definitionObj to an array and access the second element which contains cache fields.
+          cacheFields = definitionObj.to_a.first[1][:cache]
+          if cacheFields
             cacheFields.each do |field|
               activity[keyString][field.to_s] = val.send field
             end

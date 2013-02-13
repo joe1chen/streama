@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    streama (0.3.3)
+    streama (0.3.4.2)
 
 GEM
   remote: http://rubygems.org/
