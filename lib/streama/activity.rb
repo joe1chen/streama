@@ -109,10 +109,16 @@ module Streama
             definitionObj = definition.send key
 
             # Convert definitionObj to an array and access the second element which contains cache fields.
-            cacheFields = definitionObj.to_a.first[1][:cache]
-            if cacheFields
-              cacheFields.each do |field|
-                activity[keyString][field.to_s] = val.send field
+            definitionObjArray = definitionObj.to_a.first
+            if definitionObjArray
+              definitionObjArrayHash = definitionObjArray.last
+              if definitionObjArrayHash
+                cacheFields = definitionObjArrayHash[:cache]
+                if cacheFields
+                  cacheFields.each do |field|
+                    activity[keyString][field.to_s] = val.send field
+                  end
+                end
               end
             end
           end
