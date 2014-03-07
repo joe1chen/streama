@@ -128,14 +128,17 @@ module Streama
 
           batch << activity
 
-          if batch.size % max_batch_size == 0
+          # Perform the batch insert
+          if 0 < batch.size && (batch.size % max_batch_size == 0)
             self.collection.insert(batch)
             batch = []
           end
         end
 
         # Perform the batch insert
-        self.collection.insert(batch)
+        if 0 < batch.size
+          self.collection.insert(batch)
+        end
       end
 
     end

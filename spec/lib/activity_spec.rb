@@ -161,13 +161,15 @@ describe "Activity" do
         activity["updated_at"] = activity["created_at"]
         batch << activity
 
-        if batch.size % max_batch_size == 0
+        if 0 < batch.size && (batch.size % max_batch_size == 0)
           Activity.collection.insert(batch)
           batch = []
         end
       end
 
-      Activity.collection.insert(batch)
+      if 0 < batch.size
+        Activity.collection.insert(batch)
+      end
 
       Activity.count.should >= num_followers
       Activity.where(:verb => :new_photo).each do |a|
@@ -235,13 +237,15 @@ describe "Activity" do
         activity["updated_at"] = activity["created_at"]
         batch << activity
 
-        if batch.size % max_batch_size == 0
+        if 0 < batch.size && (batch.size % max_batch_size == 0)
           Activity.collection.insert(batch)
           batch = []
         end
       end
 
-      Activity.collection.insert(batch)
+      if 0 < batch.size
+        Activity.collection.insert(batch)
+      end
     end
 
   end
