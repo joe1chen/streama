@@ -5,6 +5,7 @@ describe "Activity" do
   let(:photo) { Photo.create(:file => "image.jpg") }
   let(:album) { Album.create(:title => "A test album") }
   let(:user) { User.create(:full_name => "Christos") }
+  let(:mars_user) { Mars::User.create(:full_name => "Mars User") }
 
   describe ".activity" do
     it "registers and return a valid definition" do
@@ -30,7 +31,7 @@ describe "Activity" do
     it "pushes activity to receivers" do
       @activity = Activity.publish(:new_photo, {:actor => user, :object => photo, :target_object => album, :receivers => @send_to})
       #@activity.receivers.size.should == 2
-      @activity.size.should == 2
+      Activity.count.should == 2
     end
 
 
@@ -39,7 +40,7 @@ describe "Activity" do
       it "pushes activity to receivers" do
         @activity = Activity.publish(:new_photo_without_cache, {:actor => user, :object => photo, :target_object => album, :receivers => @send_to})
         #@activity.receivers.size.should == 2
-        @activity.size.should == 2
+        Activity.count.should == 2
       end
       
     end
@@ -47,7 +48,7 @@ describe "Activity" do
     it "overrides the recievers if option passed" do
       @activity = Activity.publish(:new_photo, {:actor => user, :object => photo, :target_object => album, :receivers => @send_to})
       #@activity.receivers.size.should == 2
-      @activity.size.should == 2
+      Activity.count.should == 2
     end
 
 =begin
@@ -72,7 +73,12 @@ describe "Activity" do
     it "creates a new activity" do
       activity = Activity.publish(:new_photo, {:actor => user, :object => photo, :target_object => album})
       #activity.should be_an_instance_of Activity
-      activity.should be_an_instance_of Array
+      activity.should be_nil
+    end
+
+    it " creates a new activity when actor has namespace" do
+      activity = Activity.publish(:new_mars_photo, {:actor => mars_user, :object => photo, :target_object => album})
+      activity.should be_nil
     end
   end
 

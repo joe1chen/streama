@@ -24,7 +24,12 @@ module Streama
     def self.data_methods(*args)
       args.each do |method|
         define_method method do |*args|
-          @attributes[method].store(args[0].is_a?(Symbol) ? args[0] : args[0].class.to_sym, args[1])
+          class_sym = if class_name = args[1].try(:delete,:class_name)
+                        class_name.underscore.to_sym
+                      else
+                        args[0].is_a?(Symbol) ? args[0] : args[0].class.to_sym
+                      end
+          @attributes[method].store(class_sym, args[1])
         end
       end
     end

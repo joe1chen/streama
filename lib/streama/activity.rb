@@ -8,16 +8,22 @@ module Streama
       include Mongoid::Timestamps
     
       field :verb,        :type => Symbol
-      field :actor,       :type => Hash
-      field :object,      :type => Hash
-      field :target_object,      :type => Hash
-      field :receiver,    :type => Hash
-          
-      index :name
-      index [['actor.id', Mongo::ASCENDING], ['actor.type', Mongo::ASCENDING]]
-      index [['object.id', Mongo::ASCENDING], ['object.type', Mongo::ASCENDING]]
-      index [['target_object.id', Mongo::ASCENDING], ['target_object.type', Mongo::ASCENDING]]
-      index [['receiver.id', Mongo::ASCENDING], ['receiver.type', Mongo::ASCENDING], ['created_at', Mongo::DESCENDING]]
+      field :actor
+      field :object
+      field :target_object
+      field :receiver
+
+      if Streama.mongoid2?
+        index [['actor.id',         Mongo::ASCENDING], ['actor.type',         Mongo::ASCENDING]]
+        index [['object.id',        Mongo::ASCENDING], ['object.type',        Mongo::ASCENDING]]
+        index [['target_object.id', Mongo::ASCENDING], ['target_object.type', Mongo::ASCENDING]]
+        index [['receiver.id',      Mongo::ASCENDING], ['receiver.type',      Mongo::ASCENDING], ['created_at', Mongo::DESCENDING]]
+      else
+        index({ :"actor.id"         => 1, :"actor.type"         => 1 })
+        index({ :"object.id"        => 1, :"object.type"        => 1 })
+        index({ :"target_object.id" => 1, :"target_object.type" => 1 })
+        index({ :"receiver.id"      => 1, :"receiver.type"      => 1, :created_at => -1 })
+      end
           
       validates_presence_of :actor, :verb
       before_save :assign_data
@@ -68,8 +74,17 @@ module Streama
 
         # Instead of iterating through all receivers and creating Mongoid objects for each activity
         # we're going to drop into the Mongo Ruby driver and use the batch insert for performance.
-        batch_insert(verb, data, receivers)
+        if Streama.mongoid2?
+          batch_insert(verb, data, receivers)
+        else
+          receivers.each do |receiver|
+            activity = new({:verb => verb, :receiver => receiver}.merge(data))
+            if activity.save
+            end
+          end
+        end
 
+        nil
       end
       
       def stream_for(actor, options={})
@@ -162,35 +177,41 @@ module Streama
     #
     # @return [Mongoid::Document] document A mongoid document instance
     def load_instance(type)
-      (data = self.send(type)).is_a?(Hash) ? data['type'].to_s.camelcase.constantize.find(data['id']) : data
+      (data = self.read_attribute(type)).is_a?(Hash) ? data['type'].to_s.camelcase.constantize.find(data['id']) : data
     end
   
     def refresh_data
       assign_data
-      save(:validate => false)
+      save(:validates_presence_of => false)
     end
   
     protected
-      
-        
-      def assign_data
-      
-        [:actor, :object, :target_object, :receiver].each do |type|
-          next unless object = load_instance(type)
+
+
+    def assign_data
+
+      [:actor, :object, :target_object, :receiver].each do |type|
+        next unless object = load_instance(type)
 
         class_sym = object.class.name.underscore.to_sym
 
-          raise Streama::InvalidData.new(class_sym) unless definition.send(type).has_key?(class_sym)
+        #raise Streama::InvalidData.new(class_sym) unless definition.send(type).has_key?(class_sym)
 
-          hash = {'id' => object.id, 'type' => object.class.name}
+        hash = {'id' => object.id, 'type' => object.class.name}
 
-          if fields = definition.send(type)[class_sym].try(:[],:cache)
-            fields.each do |field|
-              raise Streama::InvalidField.new(field) unless object.respond_to?(field)
-              hash[field.to_s] = object.send(field)
+        definitionForClass = definition.send(type)[class_sym]
+
+        if definitionForClass
+          if fields = definitionForClass.try(:[],:cache)
+            if fields
+              fields.each do |field|
+                raise Streama::InvalidField.new(field) unless object.respond_to?(field)
+                hash[field.to_s] = object.send(field)
+              end
             end
+          end
         end
-        write_attribute(type, hash)      
+        write_attribute(type, hash)
       end
     end
   
