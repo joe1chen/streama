@@ -16,6 +16,9 @@ matrix:
       env: MONGOID_VERSION=3
     - rvm: 1.9.2
       env: MONGOID_VERSION=4
+  allow_failures:
+    - rvm: rbx-2
+      env: MONGOID_VERSION=4
 
 services:
   - mongodb
