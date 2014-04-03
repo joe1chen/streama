@@ -1,10 +1,10 @@
 # Streama
 
-**ALPHA**
-
 Streama is a simple Ruby activity stream gem for use with the Mongoid ODM framework.
 
 [![travis](https://secure.travis-ci.org/joe1chen/streama.png)](http://travis-ci.org/joe1chen/streama)
+
+**Currently this fork of Streama uses a Fan Out On Write approach which is different from the Fan Out On Read approach used by christospappas's version of Streama.**
 
 ## Install
 
@@ -16,7 +16,7 @@ Streama is a simple Ruby activity stream gem for use with the Mongoid ODM framew
 
 Create an Activity model and define the activities and the fields you would like to cache within the activity.
 
-An activity consists of an actor, a verb, an object, and a target. 
+An activity consists of an actor, a verb, an object, and a target.
 
 ``` ruby
 class Activity
@@ -73,7 +73,7 @@ In your controller or background worker:
 ``` ruby
 current_user.publish_activity(:new_photo, :object => @photo, :target_object => @album)
 ```
-  
+
 This will publish the activity to the mongoid objects returned by the #followers method in the Actor.
 
 To send your activity to different receievers, pass in an additional :receivers parameter.
@@ -93,7 +93,7 @@ To retrieve all activity for an actor
 ``` ruby
 current_user.activity_stream
 ```
-  
+
 To retrieve and filter to a particular activity type
 
 ``` ruby
@@ -104,10 +104,10 @@ If you need to return the instance of an :actor, :object or :target_object from 
 ``` ruby
 activity.load_instance(:actor)
 ```
-  
+
 You can also refresh the cached activity data by calling the Activity#refresh_data method
 
-``` ruby  
+``` ruby
 activity.refresh_data
 ```
 
