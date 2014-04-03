@@ -1,4 +1,5 @@
 rvm:
+  - 1.9.2
   - 1.9.3
   - 2.0.0
 
@@ -9,9 +10,10 @@ env:
 
 matrix:
   exclude:
-    - rvm: 1.9.3
+    - rvm: 1.9.2
       env: MONGOID_VERSION=3
-    - rvm: 1.9.3
+    - rvm: 1.9.2
       env: MONGOID_VERSION=4
+
 services:
   - mongodb
