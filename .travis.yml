@@ -19,3 +19,5 @@ matrix:
 
 services:
   - mongodb
+
+cache: bundler
