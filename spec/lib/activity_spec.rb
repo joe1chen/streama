@@ -1,4 +1,5 @@
 require 'spec_helper'
+require 'benchmark'
 
 describe "Activity" do
 
@@ -124,136 +125,28 @@ describe "Activity" do
     
   end
 
-  describe 'batch insertion test' do
-
-    max_batch_size = 5
-    num_followers = 10
-
-    it "no batch insert" do
-
-      (1..num_followers).each do |n|
-        activity = Activity.new({:verb => :new_photo, :receiver => user, :actor => user, :object => photo, :target_object => album})
-      end
-    end
-
-    it "batch insert" do
-
-      options = {:verb => :new_photo, :receiver => user, :actor => user, :object => photo, :target_object => album}
-
-      verb = options.delete(:verb)
-      definition = Streama::Definition.find(verb)
-
-      batch = []
-      (1..num_followers).each do |n|
-        activity = {}
-        activity["verb"] = verb
-
-        options.each_pair do |key,val|
-          keyString = key.to_s
-          activity[keyString] = {}
-          activity[keyString]["type"] = val.class.to_s
-          activity[keyString]["id"] = val._id
-
-          definitionObj = definition.send key
-
-          if cacheFields = definitionObj[val.class.to_s.downcase.to_sym].try(:[],:cache)
-            cacheFields.each do |field|
-              activity[keyString][field.to_s] = val.send field
-            end
-          end
-        end
-
-        activity["created_at"] = Time.now
-        activity["updated_at"] = activity["created_at"]
-        batch << activity
-
-        if 0 < batch.size && (batch.size % max_batch_size == 0)
-          Activity.collection.insert(batch)
-          batch = []
-        end
-      end
-
-      if 0 < batch.size
-        Activity.collection.insert(batch)
-      end
-
-      Activity.count.should >= num_followers
-      Activity.where(:verb => :new_photo).each do |a|
-
-        a.load_instance(:actor).should be_instance_of User
-        a.load_instance(:object).should be_instance_of Photo
-        a.load_instance(:target_object).should be_instance_of Album
-        a.load_instance(:receiver).should be_instance_of User
-
-        (a.verb == :new_photo || a.verb == :new_photo_without_cache).should == true
-        a.created_at.should be_instance_of Time
-        a.updated_at.should be_instance_of Time
-      end
-    end
-  end
-
   describe 'batch insertion performance test' do
 
-    max_batch_size = 500
-    num_followers = 50000
+    num_followers = 5000
 
-    it "no batch insert" do
-
-      (1..num_followers).each do |n|
-        activity = Activity.new({:verb => :new_photo, :receiver => user, :actor => user, :object => photo, :target_object => album})
-      end
+    before :each do
+      @send_to = []
+      num_followers.times { |n| @send_to << User.create(:full_name => "Custom Receiver #{n}") }
     end
 
-    it "batch insert" do
-
-      options = {:verb => :new_photo, :receiver => user, :actor => user, :object => photo, :target_object => album}
-
-      verb = options.delete(:verb)
-      definition = Streama::Definition.find(verb)
-
-      batch = []
-      (1..num_followers).each do |n|
-        activity = {}
-        activity["verb"] = verb
-
-        options.each_pair do |key,val|
-          keyString = key.to_s
-          activity[keyString] = {}
-          activity[keyString]["type"] = val.class.to_s
-          activity[keyString]["id"] = val._id
-
-          definitionObj = definition.send key
-
-          # Convert definitionObj to an array and access the second element which contains cache fields.
-          definitionObjArray = definitionObj.to_a.first
-          if definitionObjArray
-            definitionObjArrayHash = definitionObjArray.last
-            if definitionObjArrayHash
-              cacheFields = definitionObjArrayHash[:cache]
-              if cacheFields
-                cacheFields.each do |field|
-                  activity[keyString][field.to_s] = val.send field
-                end
-              end
-            end
-          end
+    it "should do performance test" do
+      Benchmark.bm do |x|
+        x.report("no batch insert:") do
+          Activity.publish(:new_photo, {:actor => user, :object => photo, :target_object => album, :receivers => @send_to}, { use_batch_insert: false })
         end
-
-        activity["created_at"] = Time.now
-        activity["updated_at"] = activity["created_at"]
-        batch << activity
-
-        if 0 < batch.size && (batch.size % max_batch_size == 0)
-          Activity.collection.insert(batch)
-          batch = []
+        x.report("batch insert (batch size 500):") do
+          Activity.publish(:new_photo, {:actor => user, :object => photo, :target_object => album, :receivers => @send_to})
         end
-      end
-
-      if 0 < batch.size
-        Activity.collection.insert(batch)
+        x.report("batch insert (batch size 1000):") do
+          Activity.publish(:new_photo, {:actor => user, :object => photo, :target_object => album, :receivers => @send_to}, { batch_size: 1000 })
+        end
       end
     end
-
   end
 
 end

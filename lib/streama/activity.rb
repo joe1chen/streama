@@ -54,7 +54,13 @@ module Streama
       #
       # @param [ String ] verb The verb of the activity
       # @param [ Hash ] data The data to initialize the activity with.
-      def publish(verb, data)
+      def publish(verb, data, options = nil)
+        default_options = { use_batch_insert: true, batch_size: 500 }
+        if options
+          options = default_options.merge(options)
+        else
+          options = default_options
+        end
 
         if data[:receiver]
           receiver = data.delete(:receiver)
@@ -67,15 +73,9 @@ module Streama
           end
         end
 
-        #receivers.each do |receiver|
-        #  activity = new({:verb => verb, :receiver => receiver}.merge(data))
-        #  activity.save
-        #end
-
-        # Instead of iterating through all receivers and creating Mongoid objects for each activity
-        # we're going to drop into the Mongo Ruby driver and use the batch insert for performance.
-        if Streama.mongoid2?
-          batch_insert(verb, data, receivers)
+        if options && options[:use_batch_insert]
+          # Use the Mongo Ruby driver and use the batch insert for performance.
+          batch_insert(verb, data, receivers, options)
         else
           receivers.each do |receiver|
             activity = new({:verb => verb, :receiver => receiver}.merge(data))
@@ -100,8 +100,14 @@ module Streama
       end
 
       # Helper function called by publish to do batch insertions
-      def batch_insert(verb, options, receivers)
-        max_batch_size = 500
+      def batch_insert(verb, data, receivers, options = nil)
+        default_options = { batch_size: 500 }
+        if options
+          options = default_options.merge(options)
+        else
+          options = default_options
+        end
+
         definition = Streama::Definition.find(verb)
 
         # We're going to use the same activity timestamp for all our activities.
@@ -110,12 +116,12 @@ module Streama
         # Need to construct the hash to pass into Mongo Ruby driver's batch insert
         batch = []
         receivers.each do |receiver|
-          options[:receiver] = receiver
+          data[:receiver] = receiver
 
           activity = {}
           activity["verb"] = verb
 
-          options.each_pair do |key,val|
+          data.each_pair do |key,val|
             keyString = key.to_s
             activity[keyString] = {}
             activity[keyString]["type"] = val.class.to_s
@@ -144,7 +150,7 @@ module Streama
           batch << activity
 
           # Perform the batch insert
-          if 0 < batch.size && (batch.size % max_batch_size == 0)
+          if 0 < batch.size && (batch.size % options[:batch_size] == 0)
             self.collection.insert(batch)
             batch = []
           end
