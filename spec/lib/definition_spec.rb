@@ -12,7 +12,7 @@ describe "Definition" do
   end
   
   describe '#initialize' do
-    before(:all) do
+    before :each do
       @definition_dsl = definition_dsl
       @definition = Streama::Definition.new(@definition_dsl)
     end
