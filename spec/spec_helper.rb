@@ -45,12 +45,14 @@ end
 
 RSpec.configure do |config|
   config.include RSpec::Matchers
-  config.include Mongoid::Matchers
+
   config.mock_with :rspec
   
   config.before(:each) do
     DatabaseCleaner.start
-    Mongoid::IdentityMap.clear
+    if Streama.mongoid2? || Streama.mongoid3?
+      Mongoid::IdentityMap.clear
+    end
   end
 
   config.after(:each) do
