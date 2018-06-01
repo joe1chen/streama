@@ -19,9 +19,10 @@ Gem::Specification.new do |s|
   s.require_paths = ["lib"]
 
   s.add_runtime_dependency "mongoid"
+  s.add_runtime_dependency "mongoid-compatibility"
 
-  s.add_development_dependency "rspec", "~> 2.5"
-  s.add_development_dependency "database_cleaner", "~> 0.8"
+  s.add_development_dependency "rspec"
+  s.add_development_dependency "database_cleaner"
   s.add_development_dependency "pry"
   s.add_development_dependency "rake"
 end

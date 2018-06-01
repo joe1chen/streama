@@ -1,3 +1,5 @@
+require 'mongoid/compatibility'
+
 module Streama
   module Activity
     extend ActiveSupport::Concern
@@ -13,7 +15,7 @@ module Streama
       field :target_object
       field :receiver
 
-      if Streama.mongoid2?
+      if Mongoid::Compatibility::Version.mongoid2?
         index [['actor.id',         Mongo::ASCENDING], ['actor.type',         Mongo::ASCENDING]]
         index [['object.id',        Mongo::ASCENDING], ['object.type',        Mongo::ASCENDING]]
         index [['target_object.id', Mongo::ASCENDING], ['target_object.type', Mongo::ASCENDING]]
@@ -151,14 +153,23 @@ module Streama
 
           # Perform the batch insert
           if 0 < batch.size && (batch.size % options[:batch_size] == 0)
-            self.collection.insert(batch)
+            if Mongoid::Compatibility::Version.mongoid5_or_newer?
+              self.collection.insert_many(batch)
+            else
+              self.collection.insert(batch)
+            end
+
             batch = []
           end
         end
 
         # Perform the batch insert
         if 0 < batch.size
-          self.collection.insert(batch)
+          if Mongoid::Compatibility::Version.mongoid5_or_newer?
+            self.collection.insert_many(batch)
+          else
+            self.collection.insert(batch)
+          end
         end
       end
 
