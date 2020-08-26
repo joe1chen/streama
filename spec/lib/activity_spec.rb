@@ -125,6 +125,7 @@ describe "Activity" do
     
   end
 
+=begin
   describe 'batch insertion performance test' do
 
     num_followers = 5000
@@ -148,5 +149,5 @@ describe "Activity" do
       end
     end
   end
-
+=end
 end
