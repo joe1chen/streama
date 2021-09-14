@@ -11,11 +11,11 @@ require 'streama'
 require 'mongoid'
 require 'mongoid/compatibility'
 require 'rspec'
-require 'database_cleaner'
+require 'database_cleaner/mongoid'
 
 LOGGER = Logger.new($stdout)
 
-DatabaseCleaner.strategy = :truncation
+DatabaseCleaner[:mongoid].strategy = [:deletion]
 
 def database_id
   ENV["CI"] ? "mongoid_#{Process.pid}" : "mongoid_test"
@@ -45,13 +45,6 @@ Dir[ File.join(SUPPORT, "*.rb") ].each do |file|
 end
 
 RSpec.configure do |config|
-  # Clean up the database
-  require 'database_cleaner'
-  config.before(:suite) do
-    DatabaseCleaner.strategy = :truncation
-    DatabaseCleaner.orm = 'mongoid'
-  end
-
   config.before(:each) do
     DatabaseCleaner.clean
   end
