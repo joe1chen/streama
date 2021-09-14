@@ -9,7 +9,7 @@ module Streama
       include Mongoid::Document
       include Mongoid::Timestamps
     
-      field :verb,        :type => Symbol
+      field :verb, type: String
       field :actor
       field :object
       field :target_object

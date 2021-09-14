@@ -24,7 +24,7 @@ module Streama
     #
     def publish_activity(name, options={})
       if options[:receivers]
-      options[:receivers] = self.send(options[:receivers]) if options[:receivers].is_a?(Symbol)
+        options[:receivers] = self.send(options[:receivers]) if options[:receivers].is_a?(Symbol)
       end
       activity = activity_class.publish(name, {:actor => self}.merge(options))
     end
