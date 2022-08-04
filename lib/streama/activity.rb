@@ -57,7 +57,7 @@ module Streama
       # @param [ String ] verb The verb of the activity
       # @param [ Hash ] data The data to initialize the activity with.
       def publish(verb, data, options = nil)
-        default_options = { use_batch_insert: true, batch_size: 500 }
+        default_options = { use_batch_insert: false, batch_size: 500 }
         if options
           options = default_options.merge(options)
         else
