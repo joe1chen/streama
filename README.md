@@ -2,7 +2,7 @@
 
 Streama is a simple Ruby activity stream gem for use with the Mongoid ODM framework.
 
-[![travis](https://app.travis-ci.com/joe1chen/streama.svg)](https://app.travis-ci.com/github/joe1chen/streama)
+[![Build Status](https://github.com/joe1chen/streama/actions/workflows/test.yml/badge.svg)](https://github.com/joe1chen/streama/actions)
 
 **Currently this fork of Streama uses a Fan Out On Write approach which is different from the Fan Out On Read approach used by christospappas's version of Streama.**
 
