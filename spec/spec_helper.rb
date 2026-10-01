@@ -1,3 +1,4 @@
+require "logger"
 require "pry"
 $LOAD_PATH.unshift(File.dirname(__FILE__))
 $LOAD_PATH.unshift(File.join(File.dirname(__FILE__), "..", "lib"))
@@ -45,6 +46,9 @@ Dir[ File.join(SUPPORT, "*.rb") ].each do |file|
 end
 
 RSpec.configure do |config|
+  # RSpec 3 with the RSpec 2-era `should` syntax still enabled, so the existing specs run unchanged.
+  config.expect_with(:rspec) { |e| e.syntax = [:should, :expect] }
+  config.mock_with(:rspec) { |m| m.syntax = [:should, :expect] }
   config.before(:each) do
     DatabaseCleaner.clean
   end
