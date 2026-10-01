@@ -1,134 +1,165 @@
 # Streama
 
-Streama is a simple Ruby activity stream gem for use with the Mongoid ODM framework.
+[![CI RSpec Test](https://github.com/joe1chen/streama/actions/workflows/test.yml/badge.svg?branch=master)](https://github.com/joe1chen/streama/actions/workflows/test.yml)
 
-[![Build Status](https://github.com/joe1chen/streama/actions/workflows/test.yml/badge.svg)](https://github.com/joe1chen/streama/actions)
+A simple activity stream gem for **Mongoid**. You define activities (actor, verb, object, target) with the fields
+to cache from each, and publishing an activity writes one `Activity` document per receiver, so reading a user's
+stream is a single indexed query.
 
-**Currently this fork of Streama uses a Fan Out On Write approach which is different from the Fan Out On Read approach used by christospappas's version of Streama.**
+This is the [DOGOnews](https://www.dogonews.com)-maintained fork of
+[christospappas/streama](https://github.com/christospappas/streama) (upstream is archived and read-only). It is
+kept working on current Ruby, Rails, Mongoid and MongoDB versions.
 
-## Install
+**This fork uses fan-out-on-write**, unlike upstream's fan-out-on-read: upstream stores one activity document with
+a `receivers` array, this fork stores one document per receiver with a single `receiver` hash (designed in 2011 so
+the collection can be sharded by receiver). The two schemas are not compatible. Since 1.0.0 the `verb` is stored as
+a `String` (BSON symbols are deprecated).
 
-    gem install streama
+## Supported versions
+
+Tested on every push by the [GitHub Actions matrix](https://github.com/joe1chen/streama/actions/workflows/test.yml)
+([workflow](.github/workflows/test.yml)):
+
+| Ruby | Rails | Mongoid | MongoDB |
+|---|---|---|---|
+| 2.7 | 6.1 | 7.5 | 6.0 |
+| 3.0 | 6.1 | 8.0 | 6.0 |
+| 3.1 | 7.0 | 8.1 | 7.0 |
+| 3.2 | 7.1 | 8.1 | 7.0 |
+| 3.2 | 7.2 | 9.0 | 7.0 |
+| 3.3 | 7.2 | 9.0 | 8.0 |
+| 3.4 | 8.0 | 9.0 | 8.0 |
+
+The gemspec allows `mongoid >= 7.0, < 10` (and depends on `mongoid-compatibility`).
+
+## Installation
+
+This fork is not published to RubyGems (the `streama` gem there is upstream's); install it from GitHub:
+
+```ruby
+# Gemfile
+gem 'streama', github: 'joe1chen/streama'
+```
+
+Then `bundle install`.
 
 ## Usage
 
-### Define Activities
+### Define activities
 
-Create an Activity model and define the activities and the fields you would like to cache within the activity.
+Create an `Activity` model and declare each activity with the fields to cache from the actor, object, target and
+receiver:
 
-An activity consists of an actor, a verb, an object, and a target.
-
-``` ruby
+```ruby
 class Activity
   include Streama::Activity
 
   activity :new_photo do
-    actor :user, :cache => [:full_name]
-    object :photo, :cache => [:subject, :comment]
-    target_object :album, :cache => [:title]
+    actor :user, cache: [:full_name]
+    object :photo, cache: [:subject, :comment]
+    target_object :album, cache: [:title]
   end
 
+  # a namespaced class
+  activity :new_mars_photo do
+    actor :user, cache: [:full_name], class_name: 'Mars::User'
+    object :photo
+  end
 end
 ```
 
-The activity verb is implied from the activity name, in the above example the verb is :new_photo
+The activity name is the verb (`"new_photo"`). The actor performs the activity, the object is what it was
+performed on, and the target is where it happened — e.g. Geraldine (actor) posted a photo (object) to her album
+(target). This follows the [Activity Streams 1.0](http://activitystrea.ms) vocabulary.
 
-The object may be the entity performing the activity, or the entity on which the activity was performed.
-e.g John(actor) shared a video(object)
+Each of `actor`, `object`, `target_object` and `receiver` is stored as a hash: `{"id" => ..., "type" => "ClassName"}`
+plus the cached fields. Indexes are declared on `actor`, `object`, `target_object` (`id`, `type`) and on
+`receiver.id`, `receiver.type`, `created_at`; create them once with `Activity.create_indexes`.
 
-The target is the object that the verb is enacted on.
-e.g. Geraldine(actor) posted a photo(object) to her album(target)
+### Set up actors
 
-This is based on the Activity Streams 1.0 specification (http://activitystrea.ms)
-
-### Setup Actors
-
-Include the Actor module in a class and override the default followers method.
-
-``` ruby
+```ruby
 class User
-	include Mongoid::Document
-	include Streama::Actor
+  include Mongoid::Document
+  include Streama::Actor
 
-	field :full_name, :type => String
+  field :full_name, type: String
 
-	def followers
-		User.excludes(:id => self.id).all
-	end
+  # default receivers when publish_activity is called without receivers:/receiver:
+  def followers
+    User.excludes(id: id)
+  end
 end
 ```
 
-### Setup Indexes
+`activity_class SomeActivity` in the actor selects a model other than `::Activity`.
 
-Create the indexes for the Activities collection. You can do so by calling the create_indexes method.
+### Publish
 
-``` ruby
-Activity.create_indexes
+```ruby
+current_user.publish_activity(:new_photo, object: @photo, target_object: @album)                       # to #followers
+current_user.publish_activity(:new_photo, object: @photo, target_object: @album, receivers: :friends)  # calls #friends
+current_user.publish_activity(:new_photo, object: @photo, receivers: User.where(group_id: group.id))
+current_user.publish_activity(:new_photo, object: @photo, receiver: current_user)                      # one receiver
+
+# or without an actor helper
+Activity.publish(:new_photo, { actor: user, object: photo, target_object: album, receivers: users })
 ```
 
-### Publishing Activity
+Both return `nil`. With [mongo_followable](https://github.com/joe1chen/mongo_followable), `followers` returns
+`Follow` records, not users, so pass `receivers: user.all_followers` explicitly.
 
-In your controller or background worker:
+`Activity.publish` takes a third options hash: `{ use_batch_insert: true, batch_size: 500 }` builds the
+documents itself and writes them with `insert_many` in batches, skipping Mongoid callbacks and validations (it is
+off by default).
 
-``` ruby
-current_user.publish_activity(:new_photo, :object => @photo, :target_object => @album)
+### Read streams
+
+```ruby
+current_user.activity_stream                       # activities received, newest first
+current_user.activity_stream(type: :new_photo)     # filtered by verb
+current_user.actor_activity_stream                 # activities the user performed (and received)
+
+activity.load_instance(:actor)                     # => the User (also :object, :target_object, :receiver)
+activity.refresh_data                              # re-copy the cached fields and save
 ```
 
-This will publish the activity to the mongoid objects returned by the #followers method in the Actor.
+## Development
 
-To send your activity to different receievers, pass in an additional :receivers parameter.
-
-``` ruby
-current_user.publish_activity(:new_photo, :object => @photo, :target_object => @album, :receivers => :friends) # calls friends method
+```bash
+# needs a MongoDB on localhost:27017 (e.g. docker run -p 27017:27017 mongo:8.0)
+MONGOID_VERSION=9.0 RAILS_VERSION=8.0 bundle install
+MONGOID_VERSION=9.0 RAILS_VERSION=8.0 bundle exec rspec spec
 ```
 
-``` ruby
-current_user.publish_activity(:new_photo, :object => @photo, :target_object => @album, :receivers => current_user.find(:all, :conditions => {:group_id => mygroup}))
-```
+`MONGOID_VERSION` and `RAILS_VERSION` select the versions in the `Gemfile` (defaults: Mongoid 7.5, Rails 6.1).
+To add a combination to CI, add a row to `matrix.include` in `.github/workflows/test.yml`.
 
-## Retrieving Activity
+## Known issues
 
-To retrieve all activity for an actor
+- `publish` / `publish_activity` return `nil`, not the created activities.
+- Without `receivers:`/`receiver:`, receivers default to `actor.followers`, which must return actor-like
+  documents (see the mongo_followable note above).
+- `refresh_data` calls `save(validates_presence_of: false)`, which is not a real Mongoid option, so validations
+  still run.
+- `actor_activity_stream` filters on `receiver` *and* `actor.id`, so it only returns activities the actor also
+  received (e.g. published with `receiver: self`).
+- The `target` DSL method is deprecated in favour of `target_object`.
 
-``` ruby
-current_user.activity_stream
-```
+## History
 
-To retrieve and filter to a particular activity type
+- **1.0.0+ (DOGOnews fork, 2026)** — GitHub Actions matrix up to Ruby 3.4 / Rails 8.0 / Mongoid 9.0 / MongoDB 8.0
+  (Travis CI removed); mongoid dependency bounded to `>= 7.0, < 10`; specs on RSpec 3, with coverage for the batch
+  insert path. No changes to `lib/` or the stored schema were needed.
+- **1.0.0 (2021)** — `verb` stored as `String` instead of `Symbol` (breaking); Mongoid 5–8 support.
+- **0.3.3 (2012)** — the `target` field was renamed `target_object`; rename it in existing documents
+  (`$rename`) when upgrading from earlier versions.
+- **2011** — fork switched to one activity per receiver (fan-out-on-write) and added `actor_activity_stream`.
+- **Original** — streama by Christos Pappas.
 
-``` ruby
-current_user.activity_stream(:type => :activity_verb)
-```
-If you need to return the instance of an :actor, :object or :target_object from an activity call the Activity#load_instance method
+## Credits
 
-``` ruby
-activity.load_instance(:actor)
-```
+- Christos Pappas ([@christospappas](https://github.com/christospappas)) — original author
+- [Contributors](https://github.com/joe1chen/streama/graphs/contributors)
 
-You can also refresh the cached activity data by calling the Activity#refresh_data method
-
-``` ruby
-activity.refresh_data
-```
-
-## Upgrading
-
-### 0.3.3
-
-The Activity "target" field was renamed to "target_object". If you are upgrading from a previous version of Streama you will need to rename the field in existing documents.
-
-http://www.mongodb.org/display/DOCS/Updating#Updating-%24rename
-
-## Contributing
-
-Once you've made your great commits
-
-1. Fork
-1. Create a topic branch - git checkout -b my_branch
-1. Push to your branch - git push origin my_branch
-1. Create a Pull Request from your branch
-1. That's it!
-
-## Contributors
-
-* Christos Pappas		(@christospappas)
+Copyright (c) 2011 Christos Pappas. Licensed under the MIT license, see [LICENSE.txt](LICENSE.txt).

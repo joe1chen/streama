@@ -7,7 +7,7 @@ Gem::Specification.new do |s|
   s.version     = Streama::VERSION
   s.authors     = ["Christos Pappas"]
   s.email       = ["christos.pappas@gmail.com"]
-  s.homepage    = ""
+  s.homepage    = "https://github.com/joe1chen/streama"
   s.summary     = %q{Activity Streams for Mongoid}
   s.description = %q{Streama is a simple activity stream gem for use with the Mongoid ODM framework}
 
