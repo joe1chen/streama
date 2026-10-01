@@ -46,6 +46,23 @@ describe "Activity" do
       
     end
     
+    context "with use_batch_insert" do
+
+      it "writes the same documents as a regular publish" do
+        Activity.publish(:new_photo, {:actor => user, :object => photo, :target_object => album, :receivers => @send_to}, { use_batch_insert: true, batch_size: 1 })
+        Activity.count.should == 2
+        @send_to.each do |receiver|
+          activity = Activity.where(:"receiver.id" => receiver.id, :"receiver.type" => "User").first
+          activity.verb.should == "new_photo"
+          activity.actor.should == { "type" => "User", "id" => user.id, "full_name" => "Christos" }
+          activity.object.should == { "type" => "Photo", "id" => photo.id, "file" => "image.jpg" }
+          activity.target_object.should == { "type" => "Album", "id" => album.id, "title" => "A test album" }
+          activity.load_instance(:actor).should == user
+        end
+      end
+
+    end
+
     it "overrides the recievers if option passed" do
       @activity = Activity.publish(:new_photo, {:actor => user, :object => photo, :target_object => album, :receivers => @send_to})
       #@activity.receivers.size.should == 2
