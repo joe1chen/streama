@@ -34,11 +34,12 @@ The gemspec allows `mongoid >= 7.0, < 10` (and depends on `mongoid-compatibility
 
 ## Installation
 
-This fork is not published to RubyGems (the `streama` gem there is upstream's); install it from GitHub:
+This fork is not published to RubyGems (the `streama` gem there is upstream's); install it from GitHub, pinned to a
+release tag ([releases](https://github.com/joe1chen/streama/releases)):
 
 ```ruby
 # Gemfile
-gem 'streama', github: 'joe1chen/streama'
+gem 'streama', github: 'joe1chen/streama', tag: 'v2.0.0'
 ```
 
 Then `bundle install`.
@@ -148,14 +149,11 @@ To add a combination to CI, add a row to `matrix.include` in `.github/workflows/
 
 ## History
 
-- **1.0.0+ (DOGOnews fork, 2026)** — GitHub Actions matrix up to Ruby 3.4 / Rails 8.0 / Mongoid 9.0 / MongoDB 8.0
-  (Travis CI removed); mongoid dependency bounded to `>= 7.0, < 10`; specs on RSpec 3, with coverage for the batch
-  insert path. No changes to `lib/` or the stored schema were needed.
-- **1.0.0 (2021)** — `verb` stored as `String` instead of `Symbol` (breaking); Mongoid 5–8 support.
-- **0.3.3 (2012)** — the `target` field was renamed `target_object`; rename it in existing documents
-  (`$rename`) when upgrading from earlier versions.
-- **2011** — fork switched to one activity per receiver (fan-out-on-write) and added `actor_activity_stream`.
-- **Original** — streama by Christos Pappas.
+Christos Pappas's original (2011) reached 0.3.8 on RubyGems (2014; upstream is now archived). DOGOnews forked it in
+2011: 0.3.2.1–0.3.4.4 (2011–2014: one activity per receiver, batch insert, `actor_activity_stream`, upstream 0.3.4
+merged in), 0.3.5 (2018: Mongoid 2–6 via mongoid-compatibility), 1.0.0 (2021: `verb` stored as a `String`), then
+2.0.0 (2026: Mongoid 7.0–9.x on current Ruby/Rails/MongoDB, batch insert off by default).
+See [CHANGELOG.md](CHANGELOG.md).
 
 ## Credits
 
