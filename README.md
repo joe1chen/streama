@@ -29,6 +29,7 @@ Tested on every push by the [GitHub Actions matrix](https://github.com/joe1chen/
 | 3.2 | 7.2 | 9.0 | 7.0 |
 | 3.3 | 7.2 | 9.0 | 8.0 |
 | 3.4 | 8.0 | 9.0 | 8.0 |
+| 2.7 | 6.1 | 7.5 (driver 2.26) | 8.0 |
 
 The gemspec allows `mongoid >= 7.0, < 10` (and depends on `mongoid-compatibility`).
 
